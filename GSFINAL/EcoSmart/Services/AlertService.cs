@@ -19,7 +19,6 @@ namespace EcoSmart.Services
             _configuration = configuration;
         }
 
-
         public IEnumerable<AlertDTO> GetAllAlerts()
         {
             return _context.Alerts.Select(alert => new AlertDTO
@@ -51,10 +50,15 @@ namespace EcoSmart.Services
 
         public void CreateAlert(AlertDTO alertDTO)
         {
+            if (!Enum.TryParse(alertDTO.AlertType, out AlertType alertType))
+            {
+                throw new ArgumentException("Invalid alert type");
+            }
+
             var alert = new Alert
             {
                 Message = alertDTO.Message,
-                Type = Enum.Parse<AlertType>(alertDTO.AlertType),
+                Type = alertType,
                 IsRead = alertDTO.IsRead,
                 CreatedAt = alertDTO.CreatedAt,
                 UserId = alertDTO.UserId
@@ -83,10 +87,11 @@ namespace EcoSmart.Services
                 _context.SaveChanges();
             }
         }
+
         public string GenerateToken(int userId)
         {
             var user = _context.Users.Find(userId);
-            if (user == null) throw new ArgumentException("usuario nao existi");
+            if (user == null) throw new ArgumentException("User does not exist");
 
             var claims = new[]
             {
@@ -95,14 +100,25 @@ namespace EcoSmart.Services
                 new Claim(ClaimTypes.Email, user.Email)
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+    
+            var keyString = _configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key is missing");
+            var issuer = _configuration["Jwt:Issuer"] ?? throw new ArgumentNullException("Jwt:Issuer is missing");
+            var audience = _configuration["Jwt:Audience"] ?? throw new ArgumentNullException("Jwt:Audience is missing");
+            var expireMinutesString = _configuration["Jwt:ExpireMinutes"];
+            
+            if (!double.TryParse(expireMinutesString, out var expireMinutes))
+            {
+                expireMinutes = 60; 
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
+                issuer: issuer,
+                audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(double.Parse(_configuration["Jwt:ExpireMinutes"])),
+                expires: DateTime.UtcNow.AddMinutes(expireMinutes),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
