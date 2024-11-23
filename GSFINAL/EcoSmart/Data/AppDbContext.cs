@@ -14,6 +14,7 @@ namespace EcoSmart.Data
         public DbSet<EnergyConsumption> EnergyConsumptions { get; set; }
         public DbSet<EnergyTip> EnergyTips { get; set; }
         public DbSet<Alert> Alerts { get; set; }
+        public DbSet<Previsao> Previsoes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
